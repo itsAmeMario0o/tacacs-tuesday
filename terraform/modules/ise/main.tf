@@ -37,6 +37,8 @@ resource "azurerm_linux_virtual_machine" "ise" {
   # ISE reads its day-0 bootstrap from custom_data, which the provisioning
   # agent processes at first boot. user_data is only readable later via
   # IMDS and is never processed at boot, so ISE would come up unconfigured.
+  # The template must stay a single space-separated line: ISE parses the
+  # fields as whitespace-separated tokens, so newlines break every field.
   custom_data = base64encode(templatefile("${path.module}/templates/userdata.txt.tftpl", {
     hostname       = var.name
     dns_server     = var.dns_server
