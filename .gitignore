@@ -1,0 +1,18 @@
+# Terraform state and variable files hold the ISE admin password, the
+# TACACS+ shared secret, and device credentials. Never commit them.
+*.tfstate
+*.tfstate.*
+*.tfvars
+crash.log
+tfplan
+.terraform/
+
+# Python
+.venv/
+__pycache__/
+
+# Ansible
+*.retry
+
+# macOS
+.DS_Store
