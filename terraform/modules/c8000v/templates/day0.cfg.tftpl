@@ -1,0 +1,18 @@
+Section: IOS configuration
+hostname ${hostname}
+ip domain name ${domain_name}
+username ${admin_username} privilege 15 secret ${admin_password}
+aaa new-model
+tacacs server ISE
+ address ipv4 ${ise_ip}
+ key ${tacacs_secret}
+aaa group server tacacs+ ISE-GROUP
+ server name ISE
+aaa authentication login default group ISE-GROUP local
+aaa authorization exec default group ISE-GROUP local
+aaa authorization commands 15 default group ISE-GROUP local
+aaa accounting exec default start-stop group ISE-GROUP
+aaa accounting commands 15 default start-stop group ISE-GROUP
+ip ssh version 2
+line vty 0 4
+ transport input ssh
