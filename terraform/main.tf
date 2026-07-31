@@ -1,10 +1,14 @@
+# ISE parses its admin password from a key=value line in custom_data, where
+# "#" begins a comment and would truncate the value. Restrict specials to a
+# single safe character that ISE accepts and the parser leaves intact.
 resource "random_password" "ise_admin" {
   length           = 16
   special          = true
-  override_special = "#_-"
+  override_special = "@"
   min_upper        = 1
   min_lower        = 1
   min_numeric      = 1
+  min_special      = 1
 }
 
 # Azure enforces three of four character classes on admin_password.

@@ -34,13 +34,20 @@ resource "azurerm_linux_virtual_machine" "ise" {
     public_key = tls_private_key.ise.public_key_openssh
   }
 
-  user_data = base64encode(templatefile("${path.module}/templates/userdata.txt.tftpl", {
+  # ISE reads its day-0 bootstrap from custom_data, which the provisioning
+  # agent processes at first boot. user_data is only readable later via
+  # IMDS and is never processed at boot, so ISE would come up unconfigured.
+  custom_data = base64encode(templatefile("${path.module}/templates/userdata.txt.tftpl", {
     hostname       = var.name
     dns_server     = var.dns_server
     domain_name    = var.domain_name
     ntp_server     = var.ntp_server
     admin_password = var.admin_password
   }))
+
+  # Managed-storage boot diagnostics so a failed first boot leaves a
+  # readable serial console.
+  boot_diagnostics {}
 
   os_disk {
     caching              = "ReadWrite"
