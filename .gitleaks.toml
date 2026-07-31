@@ -1,0 +1,5 @@
+# Extends the default gitleaks rules. The default ruleset already covers
+# generic secrets; this file exists so future allowlist entries have a home
+# and every allowlist decision is visible in git history.
+[extend]
+useDefault = true
