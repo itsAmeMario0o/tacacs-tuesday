@@ -7,9 +7,15 @@ resource "random_password" "ise_admin" {
   min_numeric      = 1
 }
 
+# Azure enforces three of four character classes on admin_password.
+# Force one of each present class so no rebuild draws an all-one-class
+# password and fails at apply (ADR 0004 rebuild reliability).
 resource "random_password" "c8000v_admin" {
-  length  = 16
-  special = false
+  length      = 16
+  special     = false
+  min_upper   = 1
+  min_lower   = 1
+  min_numeric = 1
 }
 
 resource "random_password" "tacacs_secret" {
