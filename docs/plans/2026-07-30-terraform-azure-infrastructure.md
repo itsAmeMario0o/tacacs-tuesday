@@ -6,7 +6,7 @@
 
 **Architecture:** One resource group in eastus2 holding one VNet with three subnets, per ADR 0001. Four Terraform modules (`foundation`, `bastion`, `ise`, `c8000v`) wired by a root module that generates all secrets and prints the Bastion tunnel commands. NSGs are permissive but present per ADR 0002. Marketplace images are resolved by script and pinned in a gitignored tfvars file per ADR 0005.
 
-**Tech Stack:** Terraform >= 1.9 with azurerm ~> 4.0, random ~> 3.6, tls ~> 4.0. Azure CLI for image resolution. Local state per CLAUDE.md.
+**Tech Stack:** Terraform 1.5.7 (the Homebrew core ceiling, kept by decision) with azurerm ~> 3.100, random ~> 3.6, tls ~> 4.0. Azure CLI for image resolution. trivy (tfsec's successor, already installed) as the security scanner. Local state per CLAUDE.md.
 
 ## Global constraints
 
@@ -17,11 +17,11 @@ Copied from CLAUDE.md and the ADRs. Every task inherits these.
 - Never hardcode a marketplace publisher, offer, SKU, or version in `.tf` files. They come from `images.auto.tfvars`, written by `scripts/10-resolve-images.sh`.
 - Never remove the `local` fallback from an AAA line in the router day-0 template.
 - Every variable has a `description` and a `type`. Every resource carries the `project`, `owner`, and `expires` tags via `var.tags`.
-- Gates for every `.tf` change: `terraform fmt -check`, `terraform validate`, `tfsec`. There is no unit test suite; the gates are the tests.
+- Gates for every `.tf` change: `terraform fmt -check`, `terraform validate`, `trivy config`. trivy is tfsec's official successor and is already installed; CLAUDE.md still says tfsec pending a one-line edit at wrap-up. There is no unit test suite; the gates are the tests.
 - Bash scripts use `set -euo pipefail`, quote every variable, functions under 40 lines.
 - Skills to load before writing code in a task: `terraform-patterns`, `azure-cloud-architect`, `cloud-security`, `senior-secops`. Name them in the task's commit summary conversation.
 - Commit messages carry no AI attribution of any kind.
-- The azurerm 4.x provider needs a subscription ID. Supply it only through the shell: `export ARM_SUBSCRIPTION_ID=$(az account show --query id -o tsv)`. It never goes in a file.
+- The azurerm 3.x provider authenticates through the existing az CLI login. No subscription or tenant ID goes in any file or environment variable.
 
 ---
 
@@ -103,12 +103,12 @@ git commit -m "Ignore state, tfvars, and local tooling files"
 
 ```hcl
 terraform {
-  required_version = ">= 1.9.0"
+  required_version = ">= 1.5.7"
 
   required_providers {
     azurerm = {
       source  = "hashicorp/azurerm"
-      version = "~> 4.0"
+      version = "~> 3.100"
     }
     random = {
       source  = "hashicorp/random"
@@ -450,10 +450,10 @@ output "nad_subnet_id" {
 terraform -chdir=terraform fmt -check -recursive
 terraform -chdir=terraform/modules/foundation init -backend=false
 terraform -chdir=terraform/modules/foundation validate
-tfsec terraform/modules/foundation
+trivy config terraform/modules/foundation
 ```
 
-Expected: all clean. If tfsec is not installed, stop and ask before installing it (dependency rule). If tfsec flags the VirtualNetwork-source rules, record the finding and the ADR 0002 justification in the commit message rather than tightening the rule.
+Expected: all clean. If trivy flags the VirtualNetwork-source rules, record the finding and the ADR 0002 justification in the commit message rather than tightening the rule.
 
 - [ ] **Step 5: Commit**
 
@@ -550,7 +550,7 @@ output "bastion_name" {
 terraform -chdir=terraform fmt -check -recursive
 terraform -chdir=terraform/modules/bastion init -backend=false
 terraform -chdir=terraform/modules/bastion validate
-tfsec terraform/modules/bastion
+trivy config terraform/modules/bastion
 ```
 
 Expected: all clean.
@@ -755,10 +755,10 @@ output "private_ip" {
 terraform -chdir=terraform fmt -check -recursive
 terraform -chdir=terraform/modules/c8000v init -backend=false
 terraform -chdir=terraform/modules/c8000v validate
-tfsec terraform/modules/c8000v
+trivy config terraform/modules/c8000v
 ```
 
-Expected: all clean. tfsec may warn about password authentication being enabled; that is how the C8000V marketplace image takes its initial credentials, so record the justification rather than changing it.
+Expected: all clean. trivy may warn about password authentication being enabled; that is how the C8000V marketplace image takes its initial credentials, so record the justification rather than changing it.
 
 - [ ] **Step 7: Commit**
 
@@ -983,7 +983,7 @@ output "ssh_private_key" {
 terraform -chdir=terraform fmt -check -recursive
 terraform -chdir=terraform/modules/ise init -backend=false
 terraform -chdir=terraform/modules/ise validate
-tfsec terraform/modules/ise
+trivy config terraform/modules/ise
 ```
 
 Expected: all clean.
@@ -1128,7 +1128,7 @@ output "ise_ssh_private_key" {
 ```bash
 terraform -chdir=terraform fmt -check -recursive
 terraform -chdir=terraform validate
-tfsec terraform
+trivy config terraform
 ```
 
 Expected: all clean. Full `terraform plan` waits for Task 8, which produces the image tfvars that plan needs.
@@ -1155,9 +1155,10 @@ git commit -m "Wire root module: secrets, module composition, tunnel outputs"
 
 ```bash
 #!/usr/bin/env bash
-# Resolve the current Cisco ISE and Catalyst 8000V marketplace images,
-# accept their terms, and pin exact versions into images.auto.tfvars.
-# Re-running is safe. Re-run on purpose to bump an image version.
+# Resolve the current Cisco ISE and Catalyst 8000V marketplace images and
+# pin exact versions into images.auto.tfvars. Terms acceptance changes
+# subscription state, so it only happens when ACCEPT_TERMS=yes, after a
+# human has reviewed the resolved images. Re-running is safe.
 set -euo pipefail
 
 LOCATION="${LOCATION:-eastus2}"
@@ -1227,8 +1228,13 @@ main() {
   echo "ISE:    ${publisher} / ${ise_offer} / ${ise_sku} / ${ise_version}"
   echo "C8000V: ${publisher} / ${c8k_offer} / ${c8k_sku} / ${c8k_version}"
 
-  accept_terms "${publisher}" "${ise_offer}" "${ise_sku}"
-  accept_terms "${publisher}" "${c8k_offer}" "${c8k_sku}"
+  if [[ "${ACCEPT_TERMS:-no}" == "yes" ]]; then
+    accept_terms "${publisher}" "${ise_offer}" "${ise_sku}"
+    accept_terms "${publisher}" "${c8k_offer}" "${c8k_sku}"
+    echo "Marketplace terms accepted for both images."
+  else
+    echo "Terms NOT accepted. Review the images above, then re-run with ACCEPT_TERMS=yes."
+  fi
 
   cat > "${OUT_FILE}" <<EOF
 # Written by scripts/10-resolve-images.sh. Do not edit by hand.
@@ -1261,7 +1267,17 @@ az account show > /dev/null || az login
 scripts/10-resolve-images.sh
 ```
 
-Expected: the script prints both image coordinate lines and writes `terraform/images.auto.tfvars`. Sanity-check the printed offers look like ISE and C8000V products. If the offer grep matches nothing, list the publisher's offers manually with `az vm image list-offers --location eastus2 --publisher cisco -o table` and adjust the pattern.
+Expected: the script prints both image coordinate lines, notes that terms were NOT accepted, and writes `terraform/images.auto.tfvars`. Sanity-check the printed offers look like ISE and C8000V products. If the offer grep matches nothing, list the publisher's offers manually with `az vm image list-offers --location eastus2 --publisher cisco -o table` and adjust the pattern.
+
+- [ ] **Step 2b: Human review of resolved images, then accept terms**
+
+Present the two resolved image coordinate lines to the human and stop. Terms acceptance changes subscription state and is human-gated. After a yes:
+
+```bash
+ACCEPT_TERMS=yes scripts/10-resolve-images.sh
+```
+
+Expected: "Marketplace terms accepted for both images." Note: `terraform plan` in Step 4 works without terms acceptance; only `apply` needs it. So Step 4 can proceed while waiting if the human is away.
 
 - [ ] **Step 3: Confirm the tfvars file is ignored**
 
@@ -1276,9 +1292,10 @@ Expected: nothing. Only `terraform.tfvars.example` is ever committed.
 Copy `terraform/terraform.tfvars.example` to `terraform/terraform.tfvars` and fill in `owner` and `expires`. Then:
 
 ```bash
-export ARM_SUBSCRIPTION_ID=$(az account show --query id -o tsv)
 terraform -chdir=terraform plan -out=tfplan
 ```
+
+The azurerm 3.x provider picks up credentials and subscription from the existing az CLI login.
 
 Expected: a plan that creates roughly 15 resources and destroys nothing. Read every line. Common failures: quota (fix: request D-family vCPU quota in eastus2 or change region), and terms not accepted (fix: re-run the script and read its errors).
 
