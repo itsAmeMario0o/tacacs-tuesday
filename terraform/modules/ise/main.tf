@@ -50,9 +50,12 @@ resource "azurerm_linux_virtual_machine" "ise" {
   # readable serial console.
   boot_diagnostics {}
 
+  # Premium SSD per Cisco's ISE-on-Azure sizing guidance. ISE's first-boot
+  # database init is IO-bound and crawls on StandardSSD, leaving the admin
+  # GUI unavailable for hours.
   os_disk {
     caching              = "ReadWrite"
-    storage_account_type = "StandardSSD_LRS"
+    storage_account_type = "Premium_LRS"
     disk_size_gb         = var.os_disk_gb
   }
 
