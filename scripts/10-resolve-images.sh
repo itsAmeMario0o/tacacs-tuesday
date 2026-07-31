@@ -9,26 +9,41 @@ LOCATION="${LOCATION:-eastus2}"
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 OUT_FILE="${REPO_ROOT}/terraform/images.auto.tfvars"
 
+# The demo pins a mature ISE release rather than floating to the newest.
+# Set ISE_SKU="" on the command line to float to the newest versioned SKU.
+ISE_SKU="${ISE_SKU:-cisco-ise_3_4}"
+
 # Find the publisher named exactly "cisco" rather than trusting a blog post.
 find_publisher() {
   az vm image list-publishers --location "${LOCATION}" \
     --query "[?name=='cisco'].name" -o tsv
 }
 
-# Newest offer matching a pattern, e.g. "ise" or "c8000v".
+# Newest offer matching a pattern. BYOL offers are preferred when present,
+# so a PAYG offer that happens to sort last cannot win by accident.
 find_offer() {
   local publisher="$1" pattern="$2"
-  az vm image list-offers --location "${LOCATION}" --publisher "${publisher}" \
-    --query "[?contains(name, '${pattern}')].name" -o tsv | sort | tail -n 1
+  local offers
+  offers="$(az vm image list-offers --location "${LOCATION}" --publisher "${publisher}" \
+    --query "[?contains(name, '${pattern}')].name" -o tsv)"
+  if echo "${offers}" | grep -q 'byol'; then
+    echo "${offers}" | grep 'byol' | sort | tail -n 1
+  else
+    echo "${offers}" | sort | tail -n 1
+  fi
 }
 
-# Newest SKU for an offer. BYOL SKUs are preferred when present.
+# Newest SKU for an offer. An optional grep -E filter keeps licensing
+# artifacts (e.g. cise-licenses) from outsorting real image SKUs; BYOL
+# SKUs are preferred when no filter is given.
 find_sku() {
-  local publisher="$1" offer="$2"
+  local publisher="$1" offer="$2" sku_filter="${3:-}"
   local skus
   skus="$(az vm image list-skus --location "${LOCATION}" \
     --publisher "${publisher}" --offer "${offer}" --query "[].name" -o tsv)"
-  if echo "${skus}" | grep -q 'byol'; then
+  if [[ -n "${sku_filter}" ]] && echo "${skus}" | grep -Eq "${sku_filter}"; then
+    echo "${skus}" | grep -E "${sku_filter}" | sort | tail -n 1
+  elif echo "${skus}" | grep -q 'byol'; then
     echo "${skus}" | grep 'byol' | sort | tail -n 1
   else
     echo "${skus}" | sort | tail -n 1
@@ -62,8 +77,17 @@ main() {
   c8k_offer="$(find_offer "${publisher}" "c8000v")"
 
   local ise_sku c8k_sku
-  ise_sku="$(find_sku "${publisher}" "${ise_offer}")"
-  c8k_sku="$(find_sku "${publisher}" "${c8k_offer}")"
+  if [[ -n "${ISE_SKU}" ]]; then
+    ise_sku="${ISE_SKU}"
+    if ! az vm image list-skus --location "${LOCATION}" --publisher "${publisher}" \
+      --offer "${ise_offer}" --query "[].name" -o tsv | grep -qx "${ise_sku}"; then
+      echo "ISE SKU '${ise_sku}' not found in offer ${ise_offer}" >&2
+      exit 1
+    fi
+  else
+    ise_sku="$(find_sku "${publisher}" "${ise_offer}" '^cisco-ise')"
+  fi
+  c8k_sku="$(find_sku "${publisher}" "${c8k_offer}" 'byol')"
 
   local ise_version c8k_version
   ise_version="$(find_version "${publisher}" "${ise_offer}" "${ise_sku}")"
