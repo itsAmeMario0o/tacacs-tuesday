@@ -11,10 +11,10 @@ MCP servers.
 
 Four short demos, each building on the last:
 
-1. **Discovery** — ask what network devices exist and how they authenticate.
-2. **Correlation** — connect a login on the router to the ISE policy that allowed it.
-3. **Governed change** — propose a config change, review it, and apply it through Ansible only after a human says yes.
-4. **Reporting** — pull the day's activity into a plain summary.
+1. **Discovery:** ask what network devices exist and how they authenticate.
+2. **Correlation:** connect a login on the router to the ISE policy that allowed it.
+3. **Governed change:** propose a config change, review it, and apply it through Ansible only after a human says yes.
+4. **Reporting:** pull the day's activity into a plain summary.
 
 The point is the guardrails. The assistant can read freely, but it cannot
 change a live device or write to ISE without a person approving the step.
@@ -33,8 +33,8 @@ Code is the client, Ansible is the change path, and a few scripts collect
 data and build reports. None of it needs its own server.
 
 Terraform keeps its state on your local disk because that state holds
-secrets. Nothing sensitive is committed. See the decision records in
-`docs/decisions/` for why each major choice was made.
+secrets. Nothing sensitive is committed. The decision records in
+`docs/decisions/` explain the reasoning behind each major choice.
 
 ## Repo layout
 
