@@ -34,12 +34,11 @@ resource "azurerm_linux_virtual_machine" "ise" {
     public_key = tls_private_key.ise.public_key_openssh
   }
 
-  # ISE reads its day-0 bootstrap from custom_data, which the provisioning
-  # agent processes at first boot. user_data is only readable later via
-  # IMDS and is never processed at boot, so ISE would come up unconfigured.
-  # The template must stay a single space-separated line: ISE parses the
-  # fields as whitespace-separated tokens, so newlines break every field.
-  custom_data = base64encode(templatefile("${path.module}/templates/userdata.txt.tftpl", {
+  # ISE 3.4 reads its day-0 bootstrap from user_data, matching Cisco's own
+  # Azure Terraform. The setup reads user_data via IMDS during first boot.
+  # Field names are ISE-specific (e.g. primaryntpserver, not ntpserver) and
+  # each key=value goes on its own line.
+  user_data = base64encode(templatefile("${path.module}/templates/userdata.txt.tftpl", {
     hostname       = var.name
     dns_server     = var.dns_server
     domain_name    = var.domain_name
