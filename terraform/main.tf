@@ -44,19 +44,25 @@ module "bastion" {
   tags                = local.common_tags
 }
 
-module "ise" {
-  source = "./modules/ise"
-
-  resource_group_name = module.foundation.resource_group_name
-  location            = module.foundation.location
-  subnet_id           = module.foundation.mgmt_subnet_id
-  private_ip          = var.ise_private_ip
-  vm_size             = var.ise_vm_size
-  image               = var.ise_image
-  admin_password      = random_password.ise_admin.result
-  dns_server          = var.dns_server
-  tags                = local.common_tags
-}
+# ISE is created outside Terraform, by scripts/90-ise-deploy.sh via the az CLI.
+# ISE's day-0 bootstrap is finicky enough that a 20-minute Terraform rebuild per
+# attempt is too slow to iterate on. The script reuses the Terraform-built
+# network and reads the admin password from the random_password below, so the
+# secret still lives in one place. random_password.ise_admin is intentionally
+# kept for that reason.
+# module "ise" {
+#   source = "./modules/ise"
+#
+#   resource_group_name = module.foundation.resource_group_name
+#   location            = module.foundation.location
+#   subnet_id           = module.foundation.mgmt_subnet_id
+#   private_ip          = var.ise_private_ip
+#   vm_size             = var.ise_vm_size
+#   image               = var.ise_image
+#   admin_password      = random_password.ise_admin.result
+#   dns_server          = var.dns_server
+#   tags                = local.common_tags
+# }
 
 module "c8000v" {
   source = "./modules/c8000v"

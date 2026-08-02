@@ -29,18 +29,22 @@ VNET="${VNET:-tacacs-tue-vnet}"
 SUBNET="${SUBNET:-snet-mgmt}"
 
 VM_NAME="${VM_NAME:-ise-test}"
-VM_SIZE="${VM_SIZE:-Standard_D4s_v4}"
+# Standard_D8s_v4 (8 vCPU/32 GB) is the smallest instance Cisco supports for ISE
+# on Azure. Smaller sizes boot the OS but starve the app, so the GUI never binds.
+VM_SIZE="${VM_SIZE:-Standard_D8s_v4}"
 PRIVATE_IP="${PRIVATE_IP:-10.80.0.70}"
 OS_DISK_GB="${OS_DISK_GB:-300}"
 ADMIN_USER="iseadmin"
 
-# ISE day-0 fields. NTP defaults to Azure's platform time source by IP, not a
-# hostname. A boot-time DNS failure is the suspected cause of ISE app init
-# stalling, and an IP removes the DNS dependency. Override NTP_SERVER to test.
+# ISE day-0 fields. ISE will not finish starting without a synced clock (its
+# internal CA depends on it), so NTP must point at a real NTP server. The
+# default is time.cloudflare.com's anycast IP, reachable by IP so there is no
+# DNS dependency at boot. Do not point NTP at 168.63.129.16: that is Azure's
+# DNS and wireserver VIP, not an NTP server. DNS stays on Azure's resolver.
 HOSTNAME_ISE="${HOSTNAME_ISE:-${VM_NAME}}"
 DNS_SERVER="${DNS_SERVER:-168.63.129.16}"
 DNS_DOMAIN="${DNS_DOMAIN:-lab.internal}"
-NTP_SERVER="${NTP_SERVER:-168.63.129.16}"
+NTP_SERVER="${NTP_SERVER:-162.159.200.123}"
 TIMEZONE="${TIMEZONE:-UTC}"
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"

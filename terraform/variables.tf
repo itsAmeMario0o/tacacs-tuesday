@@ -41,9 +41,9 @@ variable "c8000v_image" {
 }
 
 variable "ise_vm_size" {
-  description = "VM size for ISE. Default is the smallest size Cisco supports on Azure; verify against the ISE cloud guide in Task 6."
+  description = "VM size for ISE. Standard_D8s_v4 (8 vCPU/32 GB) is the smallest instance Cisco supports for ISE on Azure. Smaller sizes let the OS boot but starve the ISE application so the admin GUI never comes up."
   type        = string
-  default     = "Standard_D4s_v4"
+  default     = "Standard_D8s_v4"
 }
 
 variable "c8000v_vm_size" {
