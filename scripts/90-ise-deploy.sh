@@ -37,15 +37,17 @@ OS_DISK_GB="${OS_DISK_GB:-300}"
 ADMIN_USER="iseadmin"
 
 # ISE day-0 fields. ISE will not finish starting without a synced clock (its
-# internal CA depends on it), so NTP must point at a real NTP server. The
-# default is time.cloudflare.com's anycast IP, reachable by IP so there is no
-# DNS dependency at boot. Do not point NTP at 168.63.129.16: that is Azure's
-# DNS and wireserver VIP, not an NTP server. DNS stays on Azure's resolver.
+# internal CA depends on it), so NTP must point at a real NTP server. Do not
+# point NTP at 168.63.129.16: that is Azure's DNS and wireserver VIP, not an
+# NTP server. time.windows.com by name is safe because DNS stays on Azure's
+# resolver, which resolves public names. This matches the known-good ISE
+# deploy in the ravpn-workshop repo. Timezone is Etc/UTC, not UTC, to match
+# Cisco's own exported working user_data.
 HOSTNAME_ISE="${HOSTNAME_ISE:-${VM_NAME}}"
 DNS_SERVER="${DNS_SERVER:-168.63.129.16}"
 DNS_DOMAIN="${DNS_DOMAIN:-lab.internal}"
-NTP_SERVER="${NTP_SERVER:-162.159.200.123}"
-TIMEZONE="${TIMEZONE:-UTC}"
+NTP_SERVER="${NTP_SERVER:-time.windows.com}"
+TIMEZONE="${TIMEZONE:-Etc/UTC}"
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 IMAGES_TFVARS="${REPO_ROOT}/terraform/images.auto.tfvars"
@@ -74,7 +76,10 @@ require_prereqs() {
 }
 
 # ISE 3.4 reads its bootstrap from user_data as multi-line key=value pairs.
-# Field names are ISE-specific: primarynameserver, primaryntpserver.
+# Field names are ISE-specific: primarynameserver, primaryntpserver (3.3 and
+# earlier used ntpserver). Field order and the username line match the
+# user_data Cisco's own Portal deploy generates; a missing username line is
+# the leading suspect in Cisco's exported-config diff for app-start hangs.
 build_user_data() {
   cat <<EOF
 hostname=${HOSTNAME_ISE}
@@ -82,6 +87,7 @@ dnsdomain=${DNS_DOMAIN}
 primarynameserver=${DNS_SERVER}
 primaryntpserver=${NTP_SERVER}
 timezone=${TIMEZONE}
+username=${ADMIN_USER}
 password=${ISE_PASSWORD}
 ersapi=yes
 openapi=yes
