@@ -45,7 +45,9 @@ ADMIN_USER="iseadmin"
 # Cisco's own exported working user_data.
 HOSTNAME_ISE="${HOSTNAME_ISE:-${VM_NAME}}"
 DNS_SERVER="${DNS_SERVER:-168.63.129.16}"
-DNS_DOMAIN="${DNS_DOMAIN:-lab.internal}"
+# tacacs.lab, not lab.internal: Cisco's Portal template rejects .internal
+# in its DNS-domain validation, and both deploy paths should agree.
+DNS_DOMAIN="${DNS_DOMAIN:-tacacs.lab}"
 NTP_SERVER="${NTP_SERVER:-time.windows.com}"
 TIMEZONE="${TIMEZONE:-Etc/UTC}"
 

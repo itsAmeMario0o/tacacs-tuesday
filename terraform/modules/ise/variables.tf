@@ -71,7 +71,7 @@ variable "ntp_server" {
 variable "domain_name" {
   description = "DNS domain for the ISE node"
   type        = string
-  default     = "lab.internal"
+  default     = "tacacs.lab"
 }
 
 variable "tags" {

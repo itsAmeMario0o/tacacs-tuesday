@@ -51,7 +51,7 @@ learned this the slow way: four failed deploys on `D4s_v4`.
 | Key pair name | `ise-test-key` |
 | Private IP Address | `10.80.0.70` |
 | Public IP Address | **None** |
-| DNS domain name | `lab.internal` |
+| DNS domain name | `tacacs.lab` |
 | Primary Name Server | `168.63.129.16` |
 | Secondary/Tertiary Name Server | blank |
 | Primary NTP Server | `time.windows.com` |
@@ -75,6 +75,12 @@ Details that matter:
   will not finish starting without a synced clock. `time.windows.com` by
   name is safe because DNS points at Azure's resolver, which resolves
   public names.
+- **The domain is `tacacs.lab` because the template said so.** The form's
+  validation rejects `lab.internal` (its regex appears to want a short
+  TLD), and the domain does not need to be resolvable anyway. The az CLI
+  script uses the same value so both paths match. The router keeps
+  `lab.internal` from its own day-0 config; the mismatch is harmless and
+  not worth a VM replacement to fix.
 - The private IP `10.80.0.70` is what the scripts and runbooks assume.
 
 ## Services tab
