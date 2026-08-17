@@ -60,7 +60,10 @@ variable "ise_ip" {
 variable "domain_name" {
   description = "IP domain name, required before SSH keys can generate"
   type        = string
-  default     = "lab.internal"
+  # The live router was hand-corrected to tacacs.lab (the ISE domain) on
+  # 2026-08-17. Changing this default rewrites custom_data, which replaces
+  # the VM, so flip it to tacacs.lab at the next full rebuild, not before.
+  default = "lab.internal"
 }
 
 variable "tags" {

@@ -78,9 +78,11 @@ Details that matter:
 - **The domain is `tacacs.lab` because the template said so.** The form's
   validation rejects `lab.internal` (its regex appears to want a short
   TLD), and the domain does not need to be resolvable anyway. The az CLI
-  script uses the same value so both paths match. The router keeps
-  `lab.internal` from its own day-0 config; the mismatch is harmless and
-  not worth a VM replacement to fix.
+  script uses the same value so both paths match. The router was updated
+  to `ip domain name tacacs.lab` live over SSH; its Terraform day-0
+  template still says `lab.internal` because changing custom_data forces
+  a VM replacement. Flip the c8000v `domain_name` default at the next
+  full rebuild.
 - The private IP `10.80.0.70` is what the scripts and runbooks assume.
 
 ## Services tab
@@ -89,11 +91,15 @@ Details that matter:
 |---|---|
 | ERS | yes |
 | OpenAPI | yes |
-| pxGrid | no |
+| pxGrid | yes |
 | pxGrid Cloud | no |
 
 ERS and OpenAPI are what the MCP suite and Ansible use to talk to ISE.
-pxGrid is out of scope for this lab.
+The lab does not use pxGrid, but the August 2026 deploy went out with it
+enabled and that is harmless, so the table records what actually runs.
+All of these can be flipped later in the GUI under Administration >
+System > Settings > API Settings, so a wrong toggle here is not a
+redeploy.
 
 ## User Details tab
 
