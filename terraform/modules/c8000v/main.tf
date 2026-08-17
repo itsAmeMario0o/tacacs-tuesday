@@ -22,6 +22,13 @@ resource "azurerm_linux_virtual_machine" "c8000v" {
   network_interface_ids           = [azurerm_network_interface.c8000v.id]
   tags                            = var.tags
 
+  # Key auth in addition to the password, never instead of it. The
+  # password is the AAA local fallback; losing it means lockout.
+  admin_ssh_key {
+    username   = var.admin_username
+    public_key = var.admin_public_key
+  }
+
   custom_data = base64encode(templatefile("${path.module}/templates/day0.cfg.tftpl", {
     hostname       = var.name
     domain_name    = var.domain_name

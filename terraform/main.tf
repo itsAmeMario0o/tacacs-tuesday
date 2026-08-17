@@ -27,6 +27,48 @@ resource "random_password" "tacacs_secret" {
   special = false
 }
 
+# One SSH keypair per device, written to keys/ at the repo root so every
+# login path uses the same files (ADR 0007). RSA because Azure rejects
+# Ed25519 for the admin user on Cisco images. The files are Terraform
+# resources, so terraform destroy deletes them with the VMs they open.
+resource "tls_private_key" "c8000v_admin" {
+  algorithm = "RSA"
+  rsa_bits  = 4096
+}
+
+resource "tls_private_key" "ise_admin" {
+  algorithm = "RSA"
+  rsa_bits  = 4096
+}
+
+locals {
+  keys_dir = "${path.module}/../keys"
+}
+
+resource "local_sensitive_file" "c8000v_private_key" {
+  content         = tls_private_key.c8000v_admin.private_key_openssh
+  filename        = "${local.keys_dir}/c8000v_admin"
+  file_permission = "0600"
+}
+
+resource "local_file" "c8000v_public_key" {
+  content         = tls_private_key.c8000v_admin.public_key_openssh
+  filename        = "${local.keys_dir}/c8000v_admin.pub"
+  file_permission = "0644"
+}
+
+resource "local_sensitive_file" "ise_private_key" {
+  content         = tls_private_key.ise_admin.private_key_openssh
+  filename        = "${local.keys_dir}/ise_admin"
+  file_permission = "0600"
+}
+
+resource "local_file" "ise_public_key" {
+  content         = tls_private_key.ise_admin.public_key_openssh
+  filename        = "${local.keys_dir}/ise_admin.pub"
+  file_permission = "0644"
+}
+
 module "foundation" {
   source = "./modules/foundation"
 
@@ -73,6 +115,7 @@ module "c8000v" {
   vm_size             = var.c8000v_vm_size
   image               = var.c8000v_image
   admin_password      = random_password.c8000v_admin.result
+  admin_public_key    = tls_private_key.c8000v_admin.public_key_openssh
   tacacs_secret       = random_password.tacacs_secret.result
   ise_ip              = var.ise_private_ip
   tags                = local.common_tags

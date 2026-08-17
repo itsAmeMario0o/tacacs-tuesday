@@ -60,10 +60,14 @@ variable "ise_ip" {
 variable "domain_name" {
   description = "IP domain name, required before SSH keys can generate"
   type        = string
-  # The live router was hand-corrected to tacacs.lab (the ISE domain) on
-  # 2026-08-17. Changing this default rewrites custom_data, which replaces
-  # the VM, so flip it to tacacs.lab at the next full rebuild, not before.
-  default = "lab.internal"
+  # tacacs.lab matches the ISE deploy; Cisco's Portal template rejects
+  # .internal domains, so both devices standardized on this one.
+  default = "tacacs.lab"
+}
+
+variable "admin_public_key" {
+  description = "OpenSSH public key installed for the admin user alongside the password (ADR 0007)"
+  type        = string
 }
 
 variable "tags" {

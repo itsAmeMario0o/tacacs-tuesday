@@ -70,6 +70,10 @@ require_prereqs() {
     echo "Missing ${IMAGES_TFVARS}. Run scripts/10-resolve-images.sh first." >&2
     exit 1
   fi
+  if [[ ! -f "${REPO_ROOT}/keys/ise_admin.pub" ]]; then
+    echo "Missing keys/ise_admin.pub. Run terraform apply first (ADR 0007)." >&2
+    exit 1
+  fi
   if [[ -z "${ISE_PASSWORD:-}" ]]; then
     echo "Set ISE_PASSWORD, e.g.:" >&2
     echo "  ISE_PASSWORD=\"\$(terraform -chdir=terraform output -raw ise_admin_password)\"" >&2
@@ -128,7 +132,7 @@ main() {
     --storage-sku Premium_LRS \
     --os-disk-size-gb "${OS_DISK_GB}" \
     --admin-username "${ADMIN_USER}" \
-    --generate-ssh-keys \
+    --ssh-key-values "${REPO_ROOT}/keys/ise_admin.pub" \
     --user-data "$(build_user_data)" \
     --only-show-errors
 
