@@ -13,7 +13,18 @@ port. If `az network bastion tunnel` says "Defined port is currently
 unavailable", the local port is already taken, usually by a tunnel you
 already have running. Pick another port or close the old tunnel.
 
-Each tunnel occupies a terminal for as long as it runs.
+The easy way is the tunnel manager, which detaches both tunnels from
+the terminal (logs and pidfiles in `~/.tacacs-tunnels`):
+
+    scripts/30-tunnels.sh start     # idempotent; restarts only what is down
+    scripts/30-tunnels.sh status    # both ports, plus an ISE GUI probe
+    scripts/30-tunnels.sh stop
+
+Run `start` again anytime a tunnel dies (Bastion idles them out
+eventually); it leaves the healthy one alone. Before a demo: `status`,
+and if anything says DOWN, `start`.
+
+The manual equivalents, if you want a tunnel pinned to a terminal:
 
     # Terminal 1: ISE GUI on local 8443
     az network bastion tunnel -n bas-lab -g tacacs-tue-rg \
