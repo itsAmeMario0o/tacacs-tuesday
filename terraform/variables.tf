@@ -55,7 +55,11 @@ variable "c8000v_vm_size" {
 variable "ise_private_ip" {
   description = "Static private IP for ISE inside snet-mgmt. Static so the router day-0 config can reference it."
   type        = string
-  default     = "10.80.0.68"
+  # STALE: the Portal-deployed ISE lives at 10.80.0.70 and the live router
+  # was hand-corrected to match on 2026-08-18. Changing this default
+  # rewrites the router's custom_data, which replaces the VM, so flip it
+  # to 10.80.0.70 at the next full rebuild, not before.
+  default = "10.80.0.68"
 }
 
 variable "dns_server" {
