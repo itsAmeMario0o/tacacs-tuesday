@@ -1,7 +1,7 @@
 # tacacs-tuesday
 
 Demo lab. Cisco ISE and Catalyst 8000V running in Azure, driven by the
-`pamosima/network-mcp-docker-suite` MCP servers through Claude Code.
+`pamosima/network-mcp-docker-suite` MCP servers through Claude Desktop.
 
 Four demos: discovery, correlation, governed change, reporting.
 Audience is financial services engineering and security leadership.
@@ -13,8 +13,8 @@ customer costs more than an admitted gap.
 ## Scope
 
 In scope: ISE TACACS+ device administration only. Catalyst 8000V as the
-network access device. Ansible as the governed change path. Claude Code as
-the MCP client.
+network access device. Ansible as the governed change path. Claude Desktop
+as the MCP client, over stdio (ADR 0008).
 
 Out of scope: 802.1X, MAB, profiling, RADIUS of any kind, Catalyst switches
 (no virtual Cat9k exists), GitLab CE, AWX, Kubernetes.
@@ -29,9 +29,10 @@ Two halves, unequal.
 Bastion. This is where the effort and the risk are. Marketplace images, plan
 blocks, user data, day-0 config.
 
-**Local desktop.** Everything else. Docker running the MCP suite, Claude Code
-as the client, the Ansible control node, the collection and report scripts,
-the runbooks. None of it needs a server. Reach Azure through Bastion tunnels.
+**Local desktop.** Everything else. The MCP suite running locally with uv,
+Claude Desktop as the client, the Ansible control node, the collection and
+report scripts, the runbooks. None of it needs a server. Reach Azure through
+Bastion tunnels.
 
 Default to local. Before adding an Azure resource, ask whether it could run on
 the desktop instead. The answer is usually yes, and it is cheaper and faster
@@ -55,15 +56,13 @@ to iterate.
 
 <!-- TODO: confirm all of these against the built environment before trusting them -->
 
-    # Tunnels (each occupies a terminal)
-    az network bastion tunnel -n bas-lab -g $RG --target-resource-id $ISE_ID  --resource-port 443 --port 8443
-    az network bastion tunnel -n bas-lab -g $RG --target-resource-id $C8KV_ID --resource-port 22  --port 2222
+    # Tunnels (detached; router on 2222, ISE on 8443)
+    scripts/30-tunnels.sh start
+    scripts/30-tunnels.sh status
 
-    # MCP servers
-    docker compose --profile cisco up -d
-    claude mcp add --transport http ios-xe http://localhost:8003/mcp
-    claude mcp add --transport http ise    http://localhost:8005/mcp
-    claude mcp list
+    # MCP servers: Claude Desktop launches them over stdio from the uv
+    # clone at ~/dev/network-mcp-docker-suite (runbook/02). Credentials
+    # live in config/mcp-env/, symlinked into the server directories.
 
     # Terraform
     terraform -chdir=terraform init

@@ -22,8 +22,8 @@ Three departures from the suite's own docs, all deliberate:
   offering upstream as a PR. The ise server needs no patch because its
   URL builder accepts `ISE_HOST=127.0.0.1:8443`.
 
-Scope note: CLAUDE.md names Claude Code as the MCP client; this runbook
-wires Claude Desktop by explicit request. The same servers serve either.
+Claude Desktop is the MCP client of record (ADR 0008). The same servers
+would serve Claude Code equally well over stdio if that ever changes.
 
 ## Layout
 

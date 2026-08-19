@@ -3,9 +3,9 @@
 A small demo lab where an AI assistant helps manage who can log into network
 gear, and a human approves every change it makes.
 
-Cisco ISE and a Catalyst 8000V router run in Azure. Claude Code talks to them
-through the [network-mcp-docker-suite](https://github.com/pamosima/network-mcp-docker-suite)
-MCP servers.
+Cisco ISE and a Catalyst 8000V router run in Azure. Claude Desktop talks to
+them through the [network-mcp-docker-suite](https://github.com/pamosima/network-mcp-docker-suite)
+MCP servers, which run locally with uv and speak stdio (ADR 0008).
 
 ## What the demos show
 
@@ -28,9 +28,9 @@ bulk of the build: a virtual network, two VMs (ISE and the router), network
 security groups, and a Bastion host. The VMs have no public IPs. You reach
 them through Bastion tunnels from your desktop.
 
-**Your desktop**, for everything else. Docker runs the MCP servers, Claude
-Code is the client, Ansible is the change path, and a few scripts collect
-data and build reports. None of it needs its own server.
+**Your desktop**, for everything else. The MCP servers run locally with uv,
+Claude Desktop is the client, Ansible is the change path, and a few scripts
+collect data and build reports. None of it needs its own server.
 
 Terraform keeps its state on your local disk because that state holds
 secrets. Nothing sensitive is committed. The decision records in
@@ -50,8 +50,8 @@ secrets. Nothing sensitive is committed. The decision records in
 
 ## Getting started
 
-You need an Azure subscription, the Azure CLI, Terraform, Docker, and Claude
-Code. The build runs in stages.
+You need an Azure subscription, the Azure CLI, Terraform, uv, and Claude
+Desktop. The build runs in stages.
 
 Resolve the Cisco marketplace images and stand up the infrastructure:
 
@@ -60,16 +60,15 @@ Resolve the Cisco marketplace images and stand up the infrastructure:
     terraform -chdir=terraform plan -out=tfplan
     terraform -chdir=terraform apply tfplan
 
-Open Bastion tunnels so your desktop can reach ISE and the router (each tunnel
-holds a terminal open):
+Open Bastion tunnels so your desktop can reach ISE and the router:
 
-    terraform -chdir=terraform output bastion_tunnel_commands
+    scripts/30-tunnels.sh start
 
-Start the MCP servers and point Claude Code at them:
-
-    docker compose --profile cisco up -d
-    claude mcp add --transport http ios-xe http://localhost:8003/mcp
-    claude mcp add --transport http ise    http://localhost:8005/mcp
+Wire the MCP servers into Claude Desktop. The walkthrough is
+`runbook/02-mcp-claude-desktop.md`; the short version is a uv-managed
+clone of the suite, credentials in `config/mcp-env/`, and two stdio
+entries in Claude Desktop's config (example in
+`config/claude_desktop_config.example.json`).
 
 Cisco ISE takes about half an hour to finish booting the first time. Give it
 that before you expect the admin console to answer.
