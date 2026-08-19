@@ -64,11 +64,58 @@ Open Bastion tunnels so your desktop can reach ISE and the router:
 
     scripts/30-tunnels.sh start
 
-Wire the MCP servers into Claude Desktop. The walkthrough is
-`runbook/02-mcp-claude-desktop.md`; the short version is a uv-managed
-clone of the suite, credentials in `config/mcp-env/`, and two stdio
-entries in Claude Desktop's config (example in
-`config/claude_desktop_config.example.json`).
+Then wire the MCP servers into Claude Desktop. This takes real work,
+because the upstream suite does not speak stdio and Claude Desktop does
+not speak anything else for local servers. Four steps, detailed in
+`runbook/02-mcp-claude-desktop.md`:
+
+1. **Clone the suite and patch it.** Clone
+   pamosima/network-mcp-docker-suite to `~/dev` (outside any synced
+   folder). The ios-xe server hardcodes SSH port 22, which macOS will
+   not let a tunnel bind, so one line is added to its Netmiko device
+   dict to honor an `IOS_XE_PORT` variable:
+
+       "port": int(os.getenv("IOS_XE_PORT", "22")),
+
+2. **Sidestep the hardcoded HTTP transport.** Both servers pin HTTP in
+   their `__main__` block. Importing the module instead registers all
+   the tools without starting HTTP, and a bare `mcp.run()` then starts
+   FastMCP's default transport, which is stdio. That is why the launch
+   command below is an import, not a script run. No further upstream
+   changes needed.
+
+3. **Create the credential files.** Device credentials live in this
+   repo at `config/mcp-env/ios-xe.env` and `config/mcp-env/ise.env`
+   (gitignored, mode 600), symlinked into the two server directories,
+   which is the only place the servers look for a `.env`.
+
+4. **Edit Claude Desktop's config.** Add two entries under
+   `mcpServers` in
+   `~/Library/Application Support/Claude/claude_desktop_config.json`
+   (full file in `config/claude_desktop_config.example.json`):
+
+       "ios-xe": {
+         "command": "uv",
+         "args": [
+           "run", "--directory",
+           "/Users/<you>/dev/network-mcp-docker-suite/ios-xe-mcp-server",
+           "python", "-c",
+           "from ios_xe_mcp_server import mcp; mcp.run()"
+         ]
+       },
+       "ise": {
+         "command": "uv",
+         "args": [
+           "run", "--directory",
+           "/Users/<you>/dev/network-mcp-docker-suite/ise-mcp-server",
+           "python", "-c",
+           "from ise_mcp_server import mcp; mcp.run()"
+         ]
+       }
+
+   Quit Claude Desktop fully (Cmd-Q) and reopen. Both servers should
+   show running under Settings > Developer, and the tools only work
+   while the Bastion tunnels are up.
 
 Cisco ISE takes about half an hour to finish booting the first time. Give it
 that before you expect the admin console to answer.
