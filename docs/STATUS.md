@@ -22,14 +22,17 @@ The lab is up and demo 1's foundation works end to end.
 - Evaluation licensing covers Device Admin, 88 days left as of
   2026-08-18.
 
-## In progress: MCP servers for Claude Desktop
+## Done: MCP servers for Claude Desktop
 
-Phase 2. The pamosima/network-mcp-docker-suite runs locally with uv
-(not Docker) and talks to Claude Desktop over stdio via an import
-shim, since upstream hardcodes HTTP. Both servers pass a stdio
-initialize handshake. Setup: `runbook/02-mcp-claude-desktop.md`.
-Clone lives at `~/dev/network-mcp-docker-suite`, outside OneDrive so
-uv venvs do not churn sync.
+Phase 2, confirmed working in Claude Desktop on 2026-08-19. The
+pamosima/network-mcp-docker-suite runs locally with uv (not Docker)
+and talks stdio via an import shim, since upstream hardcodes HTTP.
+The ios-xe clone carries a one-line IOS_XE_PORT patch; credentials
+live in `config/mcp-env/` (self-gitignored) symlinked into the server
+directories. Setup and troubleshooting:
+`runbook/02-mcp-claude-desktop.md`. The Bastion tunnels (2222 router,
+8443 ISE) must be up for the tools to work; a dead tunnel presents as
+a broken tool.
 
 ## Deferred on purpose
 
