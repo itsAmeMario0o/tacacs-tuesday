@@ -95,6 +95,25 @@ Log entry is the proof point demo 1 is built around.
 
 Idempotency check: log in a second time; same result, new log entry.
 
+## Troubleshooting
+
+**Live Log shows `13078 Invalid TACACS+ authorization request packet -
+possibly malformed packet`.** That is a shared-secret mismatch, not
+corruption: ISE cannot decrypt the body, so it reads as malformed. The
+usual cause is a bad paste into the NAD form. Re-copy with
+`terraform -chdir=terraform output -raw tacacs_shared_secret | pbcopy`
+(exact bytes, nothing displayed) and re-paste. This happened on the
+first bring-up, 2026-08-18.
+
+**Permit `labadmin` in the policy before the secret works, not after.**
+Once ISE can decrypt, it authorizes every session, including local-user
+ones, and the `local` fallback only engages when ISE is unreachable, not
+when it rejects. Without a rule for `labadmin`, its sessions start
+failing the moment the secret is right. The `Permit-NetAdmin` rule
+matches `netadmin OR labadmin` for this reason, and `labadmin` also
+exists as an ISE internal user so password logins keep working while ISE
+is up.
+
 ## Safety net
 
 If ISE is down or unreachable, the router falls back to the local
