@@ -1,0 +1,22 @@
+{
+  "mcpServers": {
+    "ios-xe": {
+      "command": "uv",
+      "args": [
+        "run", "--directory",
+        "/Users/mariorui/dev/network-mcp-docker-suite/ios-xe-mcp-server",
+        "python", "-c",
+        "from ios_xe_mcp_server import mcp; mcp.run()"
+      ]
+    },
+    "ise": {
+      "command": "uv",
+      "args": [
+        "run", "--directory",
+        "/Users/mariorui/dev/network-mcp-docker-suite/ise-mcp-server",
+        "python", "-c",
+        "from ise_mcp_server import mcp; mcp.run()"
+      ]
+    }
+  }
+}
