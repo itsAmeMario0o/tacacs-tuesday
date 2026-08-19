@@ -1,107 +1,103 @@
 # MCP servers for Claude Desktop
 
 Wire the ios-xe and ise MCP servers from pamosima/network-mcp-docker-suite
-into Claude Desktop, running locally with uv and talking stdio.
+into Claude Desktop, running locally with uv and talking stdio. Verified
+end to end on 2026-08-19: a tools/call over stdio returned `show clock`
+from the router through the Bastion tunnel, authenticated by TACACS+.
 
-Two departures from the suite's own docs, both deliberate:
+Three departures from the suite's own docs, all deliberate:
 
 - **uv instead of Docker.** The servers are plain FastMCP Python apps;
   `uv run` in each server directory resolves and caches the deps. No
-  containers, and the servers can reach the Bastion tunnels on
-  localhost directly.
-- **stdio instead of HTTP.** Upstream hardcodes HTTP in `__main__`
-  (`mcp.run(transport="streamable-http", ...)`). Importing the module
-  instead of executing it registers all the tools without starting
-  HTTP, and a bare `mcp.run()` starts FastMCP's default transport,
-  which is stdio: `python -c "from ios_xe_mcp_server import mcp;
-  mcp.run()"`. Verified with an initialize handshake on 2026-08-19.
-  No upstream code is modified.
+  containers, and the servers reach the Bastion tunnels on localhost.
+- **stdio instead of HTTP.** Upstream hardcodes HTTP in `__main__`.
+  Importing the module registers the tools without starting HTTP, and a
+  bare `mcp.run()` starts FastMCP's default transport, which is stdio:
+  `python -c "from ios_xe_mcp_server import mcp; mcp.run()"`.
+- **One local patch.** The ios-xe server hardcodes SSH port 22, and
+  macOS refuses to let the tunnel bind local port 22 (low ports are
+  privileged; tested, `Permission denied`). The clone carries a one-line
+  patch adding a `"port"` key from `IOS_XE_PORT` to the Netmiko dict in
+  `create_safe_device_dict`. Visible with `git diff` in the clone; worth
+  offering upstream as a PR. The ise server needs no patch because its
+  URL builder accepts `ISE_HOST=127.0.0.1:8443`.
 
-Note the scope wrinkle: CLAUDE.md names Claude Code as the MCP client;
-this runbook wires Claude Desktop by explicit request. The same servers
-serve either client.
+Scope note: CLAUDE.md names Claude Code as the MCP client; this runbook
+wires Claude Desktop by explicit request. The same servers serve either.
 
-## 1. Clone and prewarm
+## Layout
+
+| Piece | Where | Why |
+|---|---|---|
+| Suite clone (+ patch) | `~/dev/network-mcp-docker-suite` | Outside OneDrive so uv venvs do not churn sync |
+| Credentials | `config/mcp-env/*.env` in this repo | Part of the project; directory self-gitignored |
+| Symlinks | each server dir's `.env` → the repo file | The servers only read `.env` from their own cwd |
+| Client config | `~/Library/Application Support/Claude/claude_desktop_config.json` | Where Claude Desktop requires it; holds no secrets |
+
+## 1. Clone, patch, prewarm
 
     mkdir -p ~/dev && cd ~/dev
     git clone https://github.com/pamosima/network-mcp-docker-suite.git
 
-The clone lives outside OneDrive on purpose: uv creates `.venv`
-directories that OneDrive would sync forever.
+Apply the port patch to
+`ios-xe-mcp-server/ios_xe_mcp_server.py`, inside `create_safe_device_dict`:
+
+    "host": host,
+    "port": int(os.getenv("IOS_XE_PORT", "22")),   # added line
 
 Prewarm each server once so Claude Desktop's first launch is not a
-90-second dependency install:
+dependency install:
 
     cd ~/dev/network-mcp-docker-suite
-    uv run --directory ios-xe-mcp-server python -c "import ios_xe_mcp_server" 2>/dev/null
-    uv run --directory ise-mcp-server python -c "import ise_mcp_server" 2>/dev/null
+    uv run --directory ios-xe-mcp-server python -c "import ios_xe_mcp_server"
+    uv run --directory ise-mcp-server python -c "import ise_mcp_server"
 
-(Import warnings about missing env vars are fine here.)
+## 2. Credentials
 
-## 2. Credentials via .env files
+The real files live in this repo at `config/mcp-env/`, mode 600, with a
+local `.gitignore` that keeps everything but itself out of git. Contents:
 
-Each server reads a `.env` from its own directory. Secrets stay in
-these two files, not in the Claude Desktop config. Create them
-yourself from the repo root (nothing prints):
+`config/mcp-env/ios-xe.env`
 
-    cd <tacacs-tuesday repo root>
-
-    cat > ~/dev/network-mcp-docker-suite/ios-xe-mcp-server/.env <<EOF
     IOS_XE_USERNAME=netadmin
-    IOS_XE_PASSWORD=<the netadmin password you set in ISE>
+    IOS_XE_PASSWORD=<the netadmin password set in ISE>
     IOS_XE_READ_ONLY=true
-    EOF
+    IOS_XE_PORT=2222
 
-    cat > ~/dev/network-mcp-docker-suite/ise-mcp-server/.env <<EOF
-    ISE_HOST=127.0.0.1
+`config/mcp-env/ise.env`
+
+    ISE_HOST=127.0.0.1:8443
     ISE_USERNAME=iseadmin
-    ISE_PASSWORD=$(terraform -chdir=terraform output -raw ise_admin_password)
+    ISE_PASSWORD=<terraform -chdir=terraform output -raw ise_admin_password>
     ISE_VERIFY_SSL=False
-    EOF
+
+Symlink them to where the servers look:
+
+    ln -sf "<repo>/config/mcp-env/ios-xe.env" ~/dev/network-mcp-docker-suite/ios-xe-mcp-server/.env
+    ln -sf "<repo>/config/mcp-env/ise.env"    ~/dev/network-mcp-docker-suite/ise-mcp-server/.env
 
 Why these values:
 
-- **`netadmin`, not `labadmin`:** every command the AI runs then flows
-  through TACACS+ and lands in the ISE Live Log. The AI's device access
-  being visible in the audit trail is the demo.
-- **`IOS_XE_READ_ONLY=true`:** the MCP path is for discovery and
-  correlation (demos 1 and 2). Writes go through the governed Ansible
-  path (demo 3). Flip to false only if a demo explicitly needs it.
-- **`ISE_HOST=127.0.0.1`:** the server reaches ISE through the Bastion
-  tunnel on local port 443 (next section). SSL verification off because
-  ISE presents a self-signed cert for an IP.
+- **`netadmin`, not `labadmin`:** every command the AI runs flows through
+  TACACS+ and lands in the ISE Live Log. The AI's device access being
+  visible in the audit trail is the demo.
+- **`IOS_XE_READ_ONLY=true`:** MCP is the discovery and correlation path
+  (demos 1 and 2). Writes go through governed Ansible (demo 3).
+- **`127.0.0.1` with high ports:** the standard Bastion tunnels from
+  `00-device-access.md` (2222 for router SSH, 8443 for ISE HTTPS). Do
+  not try to tunnel on local 22 or 443; macOS denies the bind.
 
-## 3. Tunnels on the real ports
+## 3. Tunnels
 
-The ios-xe server SSHes to whatever host Claude names, always on port
-22 (hardcoded in its Netmiko dict). The ise server calls
-`https://ISE_HOST` on 443. So the MCP tunnels bind the real ports
-locally; macOS allows low ports without root:
-
-    # Terminal 1: router SSH on local 22
-    az network bastion tunnel -n bas-lab -g tacacs-tue-rg \
-      --target-resource-id "$(az vm show -g tacacs-tue-rg -n c8kv-lab --query id -o tsv)" \
-      --resource-port 22 --port 22
-
-    # Terminal 2: ISE API and GUI on local 443
-    az network bastion tunnel -n bas-lab -g tacacs-tue-rg \
-      --target-resource-id "$(az vm show -g tacacs-tue-rg -n ise-test --query id -o tsv)" \
-      --resource-port 443 --port 443
-
-Both tunnels must be up whenever Claude Desktop uses the tools. The
-router's address, as far as Claude is concerned, is `127.0.0.1`. Side
-benefit: with these two tunnels, the ISE GUI is just
-`https://127.0.0.1` and router SSH needs no `-p` (use
-`TUNNEL_PORT=22 scripts/20-ssh-c8000v.sh`).
-
-If port 22 refuses to bind, something local is listening; `lsof -nP
--i :22` will name it (macOS Remote Login is the usual suspect).
+The same two tunnels as `00-device-access.md`, both up whenever Claude
+Desktop uses the tools. The router's address, as far as Claude is
+concerned, is `127.0.0.1`.
 
 ## 4. Claude Desktop config
 
-Config file: `~/Library/Application Support/Claude/claude_desktop_config.json`.
-A ready example is in `config/claude_desktop_config.example.json`; the
-two entries to merge under `mcpServers`:
+`~/Library/Application Support/Claude/claude_desktop_config.json`, two
+entries under `mcpServers` (full example in
+`config/claude_desktop_config.example.json`):
 
     "ios-xe": {
       "command": "uv",
@@ -112,40 +108,31 @@ two entries to merge under `mcpServers`:
         "from ios_xe_mcp_server import mcp; mcp.run()"
       ]
     },
-    "ise": {
-      "command": "uv",
-      "args": [
-        "run", "--directory",
-        "/Users/mariorui/dev/network-mcp-docker-suite/ise-mcp-server",
-        "python", "-c",
-        "from ise_mcp_server import mcp; mcp.run()"
-      ]
-    }
+    "ise": { same shape, ise-mcp-server and ise_mcp_server }
 
 Paths are absolute because Claude Desktop launches servers with no
-useful working directory. Fully quit Claude Desktop (Cmd-Q, not just
-the window) and reopen after editing.
+useful working directory. After editing, fully quit Claude Desktop
+(Cmd-Q) and reopen.
 
 ## 5. Verify
 
-1. Claude Desktop > Settings > Developer: both servers show running,
-   no red state.
-2. Ask Claude: "Using the ise tools, list the network devices in ISE."
-   Expected: one device, `c8kv-lab`, 10.80.0.132.
-3. Ask Claude: "Using the ios-xe tools, run 'show ip interface brief'
-   on 127.0.0.1." Expected: interface table from `c8kv-lab`.
-4. The kicker: open the ISE TACACS Live Log. The AI's session from
-   step 3 is there, authenticated as `netadmin`, every command
-   accounted. That is demo 2's opening beat.
+1. Settings > Developer: both servers show running.
+2. "Using the ise tools, list the network devices in ISE." Expected:
+   `c8kv-lab`, 10.80.0.132.
+3. "Using the ios-xe tools, run 'show ip interface brief' on
+   127.0.0.1." Expected: the router's interface table.
+4. Open the ISE TACACS Live Log: the AI's session from step 3 is there,
+   authenticated as `netadmin`, every command accounted. Demo 2's
+   opening beat.
 
 ## Troubleshooting
 
-- **Server shows "failed" in Desktop:** run the exact command from the
-  config in a terminal; the import error will be plain (usually a
-  missing `.env` in the server directory).
-- **ios-xe tool times out:** the port-22 tunnel is down, or something
-  else grabbed the port.
-- **ise tool returns 401:** wrong password in the ise `.env`.
-- **ise tool returns connection errors with the tunnel up:** ERS API
-  not answering; check ISE > Administration > Settings > API Settings
-  (ERS was enabled in day-0, but verify after any ISE change).
+- **Server shows "failed" in Desktop:** run the config's exact command
+  in a terminal; the import error is plain. Usually the `.env` symlink
+  is missing or the repo file moved.
+- **`Missing required environment credentials` in the log:** same
+  cause; the server directory has no working `.env`.
+- **ios-xe tool times out:** the 2222 tunnel is down.
+- **ise tool 401:** wrong password in `ise.env`.
+- **ise tool connection error with the tunnel up:** ERS not answering;
+  check ISE > Administration > Settings > API Settings.

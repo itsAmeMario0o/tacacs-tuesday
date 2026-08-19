@@ -1,0 +1,3 @@
+# Everything except this file is ignored: these hold device credentials.
+*
+!.gitignore
