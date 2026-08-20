@@ -60,6 +60,13 @@ Resolve the Cisco marketplace images and stand up the infrastructure:
     terraform -chdir=terraform plan -out=tfplan
     terraform -chdir=terraform apply tfplan
 
+Terraform builds everything except ISE. Deploy ISE by hand from the
+Azure Portal, field by field, per `docs/ise-portal-deploy.md` — the
+Marketplace image fails Terraform's provisioning timeout, so this step
+stays manual (ADR 0006). First boot takes 45 to 60 minutes; watch it
+from the Serial Console instead of waiting blind. Then join the router
+to ISE over TACACS+ with `runbook/01-add-router-to-ise.md`.
+
 Open Bastion tunnels so your desktop can reach ISE and the router:
 
     scripts/30-tunnels.sh start
@@ -117,5 +124,5 @@ not speak anything else for local servers. Four steps, detailed in
    show running under Settings > Developer, and the tools only work
    while the Bastion tunnels are up.
 
-Cisco ISE takes about half an hour to finish booting the first time. Give it
-that before you expect the admin console to answer.
+Before any demo: `scripts/30-tunnels.sh status`, and if anything says
+DOWN, `start`. A dead tunnel looks exactly like a broken AI tool.

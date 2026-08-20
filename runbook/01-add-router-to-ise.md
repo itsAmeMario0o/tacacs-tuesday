@@ -87,7 +87,7 @@ Device Admin service is not up.
 Open a new SSH session to the router as `netadmin` with its password.
 This authenticates through TACACS+, not the local user.
 
-    ssh -o PubkeyAcceptedAlgorithms=+ssh-rsa -p 2222 netadmin@127.0.0.1
+    ssh -p 2222 netadmin@127.0.0.1
 
 Check: you land at privilege 15, and Work Centers > Device
 Administration > Overview > TACACS Live Log shows the Pass. That Live
