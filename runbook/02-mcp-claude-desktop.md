@@ -68,8 +68,13 @@ local `.gitignore` that keeps everything but itself out of git. Contents:
 
     ISE_HOST=127.0.0.1:8443
     ISE_USERNAME=iseadmin
-    ISE_PASSWORD=<terraform -chdir=terraform output -raw ise_admin_password>
+    ISE_PASSWORD=<the CURRENT iseadmin GUI password — see below>
     ISE_VERIFY_SSL=False
+
+The ISE password is NOT the Terraform output. ISE forces a password
+change at first GUI login, which orphans the day-0 password the moment
+a human signs in. Whatever you log into the GUI with today is what
+goes here.
 
 Symlink them to where the servers look:
 
@@ -133,6 +138,12 @@ useful working directory. After editing, fully quit Claude Desktop
 - **`Missing required environment credentials` in the log:** same
   cause; the server directory has no working `.env`.
 - **ios-xe tool times out:** the 2222 tunnel is down.
-- **ise tool 401:** wrong password in `ise.env`.
+- **ise tool 401:** wrong password in `ise.env`. First place to look:
+  ISE forced a password change at first GUI login, so the Terraform
+  password is stale from that moment on. Put the current GUI password
+  in `ise.env`, then fully restart Claude Desktop; the server only
+  reads `.env` at launch. Confirm ERS (Read/Write) is toggled on under
+  Administration > System > Settings > API Settings while you are
+  there. (Both bit us on 2026-08-19.)
 - **ise tool connection error with the tunnel up:** ERS not answering;
   check ISE > Administration > Settings > API Settings.

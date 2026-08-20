@@ -54,6 +54,12 @@ Each of these reverts or bites if forgotten:
 
 ## Watch out for
 
+- The iseadmin GUI/API password is NOT the Terraform output anymore:
+  ISE forces a change at first GUI login. The current password lives
+  only in `config/mcp-env/ise.env` (and the owner's head). The
+  `ise_admin_password` output still matters for a fresh ISE deploy,
+  but stops being true the moment someone logs in.
+
 - The `netadmin` password appeared in a terminal screenshot shared in
   a working session. Lab-only account; rotate in ISE if it matters.
 - The TACACS+ shared secret decrypts only if pasted exactly; error
