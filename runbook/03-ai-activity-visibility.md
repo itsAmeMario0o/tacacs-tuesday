@@ -64,6 +64,32 @@ Every router command from either client authenticates and accounts as
 `netadmin` through TACACS+, so this layer sees all AI device activity
 no matter which client, which machine, or which tool produced it.
 
+## The firing sequence (rehearsed 2026-08-20)
+
+A four-beat arc that plays out in about thirty seconds. One terminal
+runs the feed:
+
+    scripts/50-ai-event-feed.sh
+
+Then ask **Claude Code** to run the four shots. They must go through
+Claude, not your own shell: the events come from Claude Code's hooks,
+so hand-typed commands produce nothing.
+
+1. **Baseline.** "List the runbook directory." A boring INFO
+   tool.activity line and its verdict. Establishes the rhythm.
+2. **Device touch.** "SSH to the router and show the clock." Same pair
+   in the feed, and the login lands in the ISE TACACS Live Log as
+   netadmin at the same moment. Two independent audit systems, one
+   command.
+3. **API call.** "Probe the ISE GUI endpoint." Another observed call.
+4. **The escalation.** "List the MCP .env files." The .env path match
+   fires a HIGH security.finding in the feed. Observed and narrated,
+   not blocked; that is the observe-mode posture, chosen on purpose.
+
+Closing line that lands: the difference between watching shot 4 get
+logged and watching it get blocked is one rule flipped from observe to
+action. Governance is a dial, not a rebuild.
+
 ## The demo shot
 
 Split screen: ISE Live Log on one side, DefenseClaw's Verdicts (for
