@@ -31,6 +31,20 @@ Known noise, left alone deliberately: the skill scanner logs
 `SKILL.md not found in ~/.claude/skills/learned` every rescan cycle
 because that directory exists empty. Harmless; filter around it.
 
+### The live event stream
+
+DefenseClaw also writes every event to a local JSONL file (configured
+2026-08-20 in `~/.defenseclaw/config.yaml`, destination `local-events`):
+
+    tail -f ~/.defenseclaw/events.jsonl
+
+Each line carries connector, bucket, severity, action, and correlation
+IDs. The buckets worth watching: `tool.activity` (every Claude Code
+tool call), `guardrail.evaluation` (every judgment on one), and
+`security.finding`. Paths in that config must be absolute; the daemon
+does not expand `~`. Enforcement stays in observe mode on purpose;
+this layer narrates, it does not block.
+
 ## Layer 2: Claude Desktop's own MCP logs
 
 Desktop writes one log per MCP server, per tool call, including
