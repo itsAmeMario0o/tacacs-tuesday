@@ -1,6 +1,6 @@
 # Project status and handoff
 
-Last updated 2026-08-19.
+Last updated 2026-08-21.
 
 ## Where things stand
 
@@ -33,6 +33,35 @@ directories. Setup and troubleshooting:
 `runbook/02-mcp-claude-desktop.md`. The Bastion tunnels (2222 router,
 8443 ISE) must be up for the tools to work; a dead tunnel presents as
 a broken tool.
+
+## Done: MCP verified in Claude Desktop, both devices answering
+
+Confirmed working 2026-08-20 through the real client: ISE device list
+and router show commands both return through the MCP servers. Tested
+at the protocol level too (stdio tools/call). One capability finding:
+the ise MCP server is read-only by construction (21 GET tools, no
+POST, no version tool), and the ios-xe server runs with
+IOS_XE_READ_ONLY=true. Writes stay with the governed Ansible path by
+design; see the demo-3 framing in the runbooks.
+
+## Done: DefenseClaw visibility, no enforcement
+
+Cisco DefenseClaw runs on this Mac, hooked into Claude Code, observe
+mode with fail-open (deliberate; do not flip to action without a
+decision). Configured 2026-08-20: a local JSONL event stream at
+~/.defenseclaw/events.jsonl (absolute paths only; the daemon does not
+expand ~; config backup at config.yaml.bak-2026-08-20).
+
+- Viewers: the DefenseClaw Mac app (Logs > Verdicts for runtime),
+  `defenseclaw tui`, and `scripts/50-ai-event-feed.sh` for the live
+  terminal feed.
+- The three-layer visibility model and the rehearsed four-shot demo
+  arc live in `runbook/03-ai-activity-visibility.md`. Key limit:
+  DefenseClaw cannot see Claude Desktop (not a supported connector);
+  Desktop is covered by its own MCP logs and the ISE Live Log.
+- Galileo (cloud trace dashboards) was evaluated and shelved: it
+  exports prompt and tool content off-box, which cuts against the
+  on-box governance story. Name-drop it in the talk track instead.
 
 ## Deferred on purpose
 
@@ -70,7 +99,15 @@ Each of these reverts or bites if forgotten:
 
 ## Next
 
-1. Finish Claude Desktop wiring (runbook 02) and verify tools against
-   the live devices.
-2. Ansible control node and the governed-change path (demo 3).
-3. Collection and report scripts (demo 4), then full rehearsal.
+1. Ansible control node and the governed-change path (demo 3). The
+   biggest unbuilt piece; the AI-drafts-values-into-reviewed-playbooks
+   pattern is the agreed design.
+2. Collection and report scripts (demo 4). The ISE MnT API and the
+   DefenseClaw JSONL stream are the two data sources.
+3. Per-demo talk tracks and the rehearsal checklist, then a full
+   rehearsal. Demos 1 and 2 are functional today; the owner has run
+   them and called the talking points solid.
+
+Session-start ritual: `scripts/30-tunnels.sh status` (start if DOWN),
+then `scripts/50-ai-event-feed.sh` in a spare terminal if DefenseClaw
+visibility is part of the session.
